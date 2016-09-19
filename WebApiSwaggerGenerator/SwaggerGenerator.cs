@@ -13,28 +13,8 @@ namespace WebApiSwaggerGenerator
 {
     public class SwaggerJsonGenerator
     {
-        /// <summary>
-        /// Generates a swagger.json file for the specified WebAPI assembly.
-        /// </summary>
-        /// <param name="assembly">
-        /// The assembly for which to generate a swagger.json file.
-        /// </param>
-        /// <param name="apiVersion">
-        /// The version string that should appear in the swagger.json file. The default is "v1".
-        /// </param>
-        /// <param name="apiTitle">
-        /// The title of the API that should appear in the swagger.json file. The default is the name of <paramref name="assembly" />.
-        /// </param>
-        /// <param name="options">
-        /// The <see cref="SwaggerGeneratorOptions" /> that should be used to generate the swagger.json file.
-        /// </param>
-        /// <returns>
-        /// A string containing the contents of the swagger.json file.
-        /// </returns>
         public string GenerateSwaggerJson(Assembly assembly, string apiVersion = "v1", string apiTitle = null, SwaggerGeneratorOptions options = null)
         {
-            // Create an in-memory configuration. We'll pass this into the WebApiConfig.Register method of the specified
-            // assembly to gain information about the controllers, routes, and other API settings of the assembly.
             var httpConfig = new HttpConfiguration();
 
             if (apiTitle == null)
@@ -45,11 +25,12 @@ namespace WebApiSwaggerGenerator
             if (options == null)
             {
                 options = new SwaggerGeneratorOptions(
-                    schemaIdSelector: (type) => type.FriendlyId(true),
-                    conflictingActionsResolver: (apiDescriptions) => apiDescriptions.First());
+                    schemaIdSelector: (type) => type.FriendlyId(),
+                    conflictingActionsResolver: (apiDescriptions) => apiDescriptions.First(),
+                    operationFilters: new[] { new StandardOperationFilter() },
+                    schemaFilters: new[] { new StandardSchemaFilter() });
             }
 
-            // Locate the WebApiConfig.Register method from the specified assembly and execute it.
             ExecuteConfigFromAssembly(assembly, httpConfig);
             httpConfig.EnsureInitialized();
 
@@ -59,7 +40,6 @@ namespace WebApiSwaggerGenerator
                 new Dictionary<string, Info> { { apiVersion, new Info { version = apiVersion, title = apiTitle } } },
                 options);
 
-            // This value is not used by AutoRest, so we can just pass in a temp value.
             var swaggerDoc = swaggerProvider.GetSwagger("http://tempuri.org/", apiVersion);
 
             return JsonConvert.SerializeObject(
@@ -75,6 +55,7 @@ namespace WebApiSwaggerGenerator
 
         public void ExecuteConfigFromAssembly(Assembly assembly, HttpConfiguration config)
         {
+
             var configClass = assembly.GetTypes().FirstOrDefault(t => t.Name == "WebApiConfig");
 
             var registerMethod = configClass.GetMethods()
